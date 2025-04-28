@@ -1,6 +1,6 @@
 # Tumor Cellular Automaton Model
 
-A simple implementation of a stochastic cellular automaton for tumor growth, inspired by Valentim et al. (2022) and the Terrain-Generation framework.
+A simple implementation of a stochastic cellular automaton for tumor growth.
 
 ## Description
 
