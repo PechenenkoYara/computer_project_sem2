@@ -56,9 +56,26 @@ class Grid:
         i0, j0 = start
         self._map[i0:i0+tumor_size, j0:j0+tumor_size] = tumor
 
+    @property
+    def map(self):
+        """ Public read-only access to the grid map.
+        """
+
+        return self._map
+
     def __getitem__(self, idx):
         """Allow grid[i][j] to return the cell-state (int)."""
         return self._map[idx]
+
+    def __setitem__(self, idx: Tuple[int, int], value: int) -> None:
+        """ Allow grid[i, j] = value syntax to set a cell value.
+
+        Args:
+            idx (Tuple[int, int]): The (row, column) indices.
+            value (int): The value to set at the specified cell.
+        """
+        i, j = idx
+        self._map[i, j] = value
 
     def get_neighbours(self, i: int, j: int) -> list[tuple[int, int]]:
         """
