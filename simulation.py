@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from cell import Cell, StemCell, NecroticCell, TumorCell, EmptyCell
 from grid import Grid
 
+SHARED_EMPTY_CELL = EmptyCell(-1, -1)
 class TumorSimulation:
     """
     Simulation class to handle the time evolution of the tumor model.
@@ -27,7 +28,8 @@ class TumorSimulation:
         stem_cell_potentional: int = 12,
         migration_potentional: int = 1,
         tumor_size: int = 10,
-        seed: Optional[str] = None
+        seed: Optional[str] = None,
+        run_statistics: bool = False
     ):
         """
         Initialize the tumor simulation environment.
@@ -42,6 +44,8 @@ class TumorSimulation:
             migration_potentional (int): Migration activity level of a cell per day.
             tumor_size (int): Size of the square tumor matrix.
             seed (Optional[str]): Seed for reproducibility of random events.
+            run_statistics (bool): If True, statistics will be saved. 
+            If False, statistics will not be saved, which improves performance.
         """
 
         self.n_rows, self.n_cols = grid_size
@@ -52,31 +56,7 @@ class TumorSimulation:
         self.stem_cell_potentional = stem_cell_potentional
         self.migration_potentional = migration_potentional
         self.tumor_size = tumor_size
-
-        # --- Time-variable parameter arrays ---
-
-        # Death rate over time (per time step).
-        # Represents the probability or rate at which cells die.
-        self.vect_deat = np.zeros(maximum_time_steps + 1)
-        self.vect_deat[:round(0.5*maximum_time_steps)] = 0.01*time_step
-        self.vect_deat[round(0.5*maximum_time_steps):] = 0.01*time_step
-
-        # Proliferation rate over time.
-        # Scales with how often cells divide, normalized to simulation time steps.
-        # Formula: (24 hours / cell_cycle_time) × time_step.
-        self.vect_prol = np.zeros(maximum_time_steps + 1)
-        self.vect_prol[:] = 24 / cell_cycle_time * time_step
-
-        # Migration potential over time. Represents how likely or far a cell can migrate.
-        # Currently fixed to 10 × time_step throughout the simulation.
-        self.vect_potm = np.zeros(maximum_time_steps + 1)
-        self.vect_potm[:round(0.4*maximum_time_steps)] = 10 * time_step
-        self.vect_potm[round(0.4*maximum_time_steps):] = 10 * time_step
-
-        # Stem cell behavior parameter over time.
-        # Could represent differentiation rate, plasticity, or activation rate.
-        self.vect_stem = np.zeros(maximum_time_steps + 1)
-        self.vect_stem[:] = 0.1
+        self.run_statistics = run_statistics
 
         self.grid = Grid(
             n=self.n_rows,
@@ -87,14 +67,34 @@ class TumorSimulation:
         )
 
         self.cells = {}
+        self.active_cells = set()
         self.__initialize_cells_from_grid()
 
+        # --- Time-variable parameter arrays ---
+
+        # Death rate over time (per time step).
+        # Represents the probability or rate at which cells die.
+        self.vect_deat = np.full(maximum_time_steps + 1, 0.01 * time_step)
+
+        # Proliferation rate over time.
+        # Scales with how often cells divide, normalized to simulation time steps.
+        # Formula: (24 hours / cell_cycle_time) × time_step.
+        self.vect_prol = np.full(maximum_time_steps + 1, (24 / cell_cycle_time) * time_step)
+
+        # Migration potential over time. Represents how likely or far a cell can migrate.
+        # Currently fixed to 10 × time_step throughout the simulation.
+        self.vect_potm = np.full(maximum_time_steps + 1, 10 * time_step)
+
+        # Stem cell behavior parameter over time.
+        # Could represent differentiation rate, plasticity, or activation rate
+        self.vect_stem = np.full(maximum_time_steps + 1, 0.1)
+
         self.stats = {
-            'time': [],
-            'total_cells': [],
-            'tumor_cells': [],
-            'stem_cells': [],
-            'necrotic_cells': []
+            'time': np.zeros(maximum_time_steps + 1),
+            'total_cells': np.zeros(maximum_time_steps + 1, dtype=int),
+            'tumor_cells': np.zeros(maximum_time_steps + 1, dtype=int),
+            'stem_cells': np.zeros(maximum_time_steps + 1, dtype=int),
+            'necrotic_cells': np.zeros(maximum_time_steps + 1, dtype=int)
         }
 
         self.current_step = 0
@@ -115,7 +115,6 @@ class TumorSimulation:
         """
 
         tumor = np.zeros((tumor_size, tumor_size), dtype=int)
-
         center = tumor_size // 2
         tumor[center, center] = stem_cell_potentional
 
@@ -133,24 +132,19 @@ class TumorSimulation:
         for i in range(self.n_rows):
             for j in range(self.n_cols):
                 cell_type = self.grid[i][j]
+                pos = (i, j)
 
                 if cell_type == 0:
-                    self.cells[(i, j)] = EmptyCell(i, j)
-
+                    self.cells[pos] = SHARED_EMPTY_CELL
                 elif cell_type == 1:
-                    tumor_cell = TumorCell(i, j,\
-                        self.cell_cycle_time, self.regular_cell_division_potentional)
-
-                    tumor_cell.divisions_left = self.regular_cell_division_potentional
-
-                    self.cells[(i, j)] = tumor_cell
-
+                    cell = TumorCell(i, j, \
+            self.cell_cycle_time, self.regular_cell_division_potentional)
+                    self.cells[pos] = cell
+                    self.active_cells.add(pos)
                 elif cell_type == self.stem_cell_potentional:
-                    stem_cell = StemCell(i, j, self.cell_cycle_time)
-
-                    stem_cell.divisions_left = 0
-
-                    self.cells[(i, j)] = stem_cell
+                    cell = StemCell(i, j, self.cell_cycle_time)
+                    self.cells[pos] = cell
+                    self.active_cells.add(pos)
 
     def get_empty_neighbors(self, i: int, j: int):
         """ Identify all adjacent empty cells around a given cell.
@@ -164,9 +158,8 @@ class TumorSimulation:
             neighboring grid positions that are currently empty (i.e., contain an EmptyCell object).
         """
 
-        neighbors = self.grid.get_neighbours(i, j)
-
-        return [(ni, nj) for ni, nj in neighbors if isinstance(self.cells.get((ni, nj)), EmptyCell)]
+        return [(ni, nj) for ni, nj in self.grid.get_neighbours(i, j)
+                if self.cells.get((ni, nj)) == SHARED_EMPTY_CELL]
 
     def update_grid_cell(self, i: int, j: int, cell_obj: Cell):
         """
@@ -178,17 +171,21 @@ class TumorSimulation:
             cell_obj (Cell): The new cell object to place at position (i, j).
         """
 
+        pos = (i, j)
         if isinstance(cell_obj, EmptyCell):
             self.grid[i, j] = 0
-        elif isinstance(cell_obj, TumorCell):
-            if isinstance(cell_obj, StemCell):
-                self.grid[i, j] = self.stem_cell_potentional
-            else:
-                self.grid[i, j] = 1
+            self.active_cells.discard(pos)
         elif isinstance(cell_obj, NecroticCell):
             self.grid[i, j] = 2
+            self.active_cells.discard(pos)
+        elif isinstance(cell_obj, StemCell):
+            self.grid[i, j] = self.stem_cell_potentional
+            self.active_cells.add(pos)
+        elif isinstance(cell_obj, TumorCell):
+            self.grid[i, j] = 1
+            self.active_cells.add(pos)
 
-        self.cells[(i, j)] = cell_obj
+        self.cells[pos] = cell_obj
 
     def __run_step(self):
         """ Executes a single time step of the tumor simulation.
@@ -199,64 +196,59 @@ class TumorSimulation:
         """
 
         death_prob = self.vect_deat[self.current_step]
-        proliferation_prob = self.vect_prol[self.current_step]
-        migration_prob = self.vect_potm[self.current_step]
+        prolif_prob = self.vect_prol[self.current_step]
+        migrate_prob = self.vect_potm[self.current_step]
         stem_prob = self.vect_stem[self.current_step]
 
-        cell_positions = list(self.cells.keys())
-
-        for pos in cell_positions:
+        for pos in list(self.active_cells):
             cell = self.cells[pos]
-
             if cell.is_alive:
                 cell.update_timer(self.time_step)
 
-        for pos in cell_positions:
+        for pos in list(self.active_cells):
             i, j = pos
             cell = self.cells[pos]
 
             if not cell.is_alive:
                 continue
 
+            # Death
             if random.random() < death_prob:
-                necrotic_cell = NecroticCell(i, j)
-                self.update_grid_cell(i, j, necrotic_cell)
+                self.update_grid_cell(i, j, NecroticCell(i, j))
                 continue
 
-            if cell.can_divide() and isinstance(cell, (TumorCell, StemCell)):
+            # Division
+            if cell.can_divide() and random.random() < prolif_prob:
                 empty_neighbors = self.get_empty_neighbors(i, j)
-
-                if empty_neighbors and random.random() < proliferation_prob:
+                if empty_neighbors:
                     ni, nj = random.choice(empty_neighbors)
-
                     cell.reset_timer()
 
                     if isinstance(cell, TumorCell) and not isinstance(cell, StemCell):
                         cell.divisions_left -= 1
-
                         if cell.divisions_left <= 0:
-                            necrotic_cell = NecroticCell(i, j)
-                            self.update_grid_cell(i, j, necrotic_cell)
+                            self.update_grid_cell(i, j, NecroticCell(i, j))
                             continue
 
-                    daughter = cell.divide(stem_prob,\
-                        self.regular_cell_division_potentional, self.stem_cell_potentional)
-
+                    daughter = cell.divide(
+                        stem_prob,
+                        self.regular_cell_division_potentional,
+                        self.stem_cell_potentional
+                    )
                     self.update_grid_cell(ni, nj, daughter)
 
-            if random.random() < migration_prob:
+            # Migration
+            if random.random() < migrate_prob:
                 empty_neighbors = self.get_empty_neighbors(i, j)
                 new_pos = cell.migrate(empty_neighbors)
-
                 if new_pos:
                     ni, nj = new_pos
-
-                    self.update_grid_cell(i, j, EmptyCell(i, j))
-
+                    self.update_grid_cell(i, j, SHARED_EMPTY_CELL)
                     cell.x, cell.y = ni, nj
                     self.update_grid_cell(ni, nj, cell)
 
-        self.__record_statistics()
+        if self.run_statistics:
+            self.__record_statistics()
 
         self.current_step += 1
         self.current_time += self.time_step
@@ -270,36 +262,36 @@ class TumorSimulation:
         maximum number of time steps is reached.
         """
 
-        while self.current_step <= self.maximum_time_steps:
-            self.__run_step()
+        while self.__run_step():
+            pass
+
+        if self.run_statistics:
+            self.plot_statistics()
+            plt.savefig('tumor_stats.png')
 
     def __record_statistics(self):
         """ Records the current state of the simulation, including the count of 
         total cells, tumor cells, stem cells, and necrotic cells.
         """
 
-        total_cells = 0
-        tumor_cells = 0
-        stem_cells = 0
-        necrotic_cells = 0
-
+        total, tumor, stem, necrotic = 0, 0, 0, 0
         for cell in self.cells.values():
-            if not isinstance(cell, EmptyCell):
-                total_cells += 1
+            if cell == SHARED_EMPTY_CELL:
+                continue
+            total += 1
+            if isinstance(cell, NecroticCell):
+                necrotic += 1
+            elif isinstance(cell, StemCell):
+                stem += 1
+                tumor += 1
+            elif isinstance(cell, TumorCell):
+                tumor += 1
 
-                if isinstance(cell, NecroticCell):
-                    necrotic_cells += 1
-                elif isinstance(cell, StemCell):
-                    stem_cells += 1
-                    tumor_cells += 1
-                elif isinstance(cell, TumorCell):
-                    tumor_cells += 1
-
-        self.stats['time'].append(self.current_time)
-        self.stats['total_cells'].append(total_cells)
-        self.stats['tumor_cells'].append(tumor_cells)
-        self.stats['stem_cells'].append(stem_cells)
-        self.stats['necrotic_cells'].append(necrotic_cells)
+        self.stats['time'][self.current_step] = self.current_time
+        self.stats['total_cells'][self.current_step] = total
+        self.stats['tumor_cells'][self.current_step] = tumor
+        self.stats['stem_cells'][self.current_step] = stem
+        self.stats['necrotic_cells'][self.current_step] = necrotic
 
     def plot_statistics(self):
         """ Plots the evolution of key statistics
@@ -307,33 +299,30 @@ class TumorSimulation:
         """
 
         plt.figure(figsize=(12, 8))
-
-        plt.plot(self.stats['time'], self.stats['total_cells'], 'k-', label='Total Cells')
-        plt.plot(self.stats['time'], self.stats['tumor_cells'], 'r-', label='Tumor Cells')
-        plt.plot(self.stats['time'], self.stats['stem_cells'], 'g-', label='Stem Cells')
-        plt.plot(self.stats['time'], self.stats['necrotic_cells'], 'b-', label='Necrotic Cells')
-
+        t = self.stats['time'][:self.current_step + 1]
+        plt.plot(t, self.stats['total_cells'][:self.current_step + 1], 'k-', label='Total Cells')
+        plt.plot(t, self.stats['tumor_cells'][:self.current_step + 1], 'r-', label='Tumor Cells')
+        plt.plot(t, self.stats['stem_cells'][:self.current_step + 1], 'g-', label='Stem Cells')
+        plt.plot(t, self.stats['necrotic_cells'][:self.current_step + 1], \
+                  'b-', label='Necrotic Cells')
         plt.xlabel('Time (days)')
         plt.ylabel('Cell Count')
         plt.title('Tumor Growth Simulation Statistics')
         plt.legend()
         plt.grid(True)
-
         return plt.gcf()
 
 if __name__ == "__main__":
     sim = TumorSimulation(
-        grid_size=(100, 100),
+        grid_size=(1000, 1000),
         maximum_time_steps=1000,
         time_step=1/12,
         cell_cycle_time=24,
         regular_cell_division_potentional=11,
         stem_cell_potentional=12,
         migration_potentional=1,
-        tumor_size=10
+        tumor_size=10,
+        run_statistics=False
     )
 
     sim.run_simulation()
-
-    sim.plot_statistics()
-    plt.savefig('tumor_stats.png')
