@@ -6,6 +6,8 @@ import random
 
 from typing import Tuple, Optional
 
+from collections import deque
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -29,7 +31,8 @@ class TumorSimulation:
         migration_potentional: int = 1,
         tumor_size: int = 10,
         seed: Optional[str] = None,
-        run_statistics: bool = False
+        run_statistics: bool = False,
+        statistics_step: int = 10
     ):
         """
         Initialize the tumor simulation environment.
@@ -46,6 +49,7 @@ class TumorSimulation:
             seed (Optional[str]): Seed for reproducibility of random events.
             run_statistics (bool): If True, statistics will be saved. 
             If False, statistics will not be saved, which improves performance.
+            statistics_step (int): Statistics recording frequency.
         """
 
         self.n_rows, self.n_cols = grid_size
@@ -57,6 +61,7 @@ class TumorSimulation:
         self.migration_potentional = migration_potentional
         self.tumor_size = tumor_size
         self.run_statistics = run_statistics
+        self.statistics_step = statistics_step
 
         self.grid = Grid(
             n=self.n_rows,
@@ -66,7 +71,7 @@ class TumorSimulation:
             seed=seed
         )
 
-        self.cells = {}
+        self.cell_matrix = np.full((self.n_rows, self.n_cols), SHARED_EMPTY_CELL, dtype=object)
         self.active_cells = set()
         self.__initialize_cells_from_grid()
 
@@ -97,6 +102,8 @@ class TumorSimulation:
             'necrotic_cells': np.zeros(maximum_time_steps + 1, dtype=int)
         }
 
+        self.stats_index = 0
+        self.necrotic_count = 0
         self.current_step = 0
         self.current_time = 0.0
 
@@ -135,15 +142,15 @@ class TumorSimulation:
                 pos = (i, j)
 
                 if cell_type == 0:
-                    self.cells[pos] = SHARED_EMPTY_CELL
+                    cell = self.cell_matrix[i, j] = SHARED_EMPTY_CELL
                 elif cell_type == 1:
                     cell = TumorCell(i, j, \
             self.cell_cycle_time, self.regular_cell_division_potentional)
-                    self.cells[pos] = cell
+                    cell = self.cell_matrix[i, j] = cell
                     self.active_cells.add(pos)
                 elif cell_type == self.stem_cell_potentional:
                     cell = StemCell(i, j, self.cell_cycle_time)
-                    self.cells[pos] = cell
+                    cell = self.cell_matrix[i, j] = cell
                     self.active_cells.add(pos)
 
     def get_empty_neighbors(self, i: int, j: int):
@@ -159,7 +166,7 @@ class TumorSimulation:
         """
 
         return [(ni, nj) for ni, nj in self.grid.get_neighbours(i, j)
-                if self.cells.get((ni, nj)) == SHARED_EMPTY_CELL]
+            if self.cell_matrix[ni, nj] == SHARED_EMPTY_CELL]
 
     def update_grid_cell(self, i: int, j: int, cell_obj: Cell):
         """
@@ -185,7 +192,7 @@ class TumorSimulation:
             self.grid[i, j] = 1
             self.active_cells.add(pos)
 
-        self.cells[pos] = cell_obj
+        self.cell_matrix[i, j] = cell_obj
 
     def __run_step(self):
         """ Executes a single time step of the tumor simulation.
@@ -200,25 +207,31 @@ class TumorSimulation:
         migrate_prob = self.vect_potm[self.current_step]
         stem_prob = self.vect_stem[self.current_step]
 
+        death_random_values = {pos: random.random() for pos in self.active_cells}
+        prolif_random_values = {pos: random.random() for pos in self.active_cells}
+        migrate_random_values = {pos: random.random() for pos in self.active_cells}
+
         for pos in list(self.active_cells):
-            cell = self.cells[pos]
+            i, j = pos
+            cell = self.cell_matrix[i, j]
             if cell.is_alive:
                 cell.update_timer(self.time_step)
 
         for pos in list(self.active_cells):
             i, j = pos
-            cell = self.cells[pos]
+            cell = self.cell_matrix[i, j]
 
             if not cell.is_alive:
                 continue
 
             # Death
-            if random.random() < death_prob:
+            if death_random_values[pos] < death_prob:
                 self.update_grid_cell(i, j, NecroticCell(i, j))
+                self.necrotic_count += 1
                 continue
 
             # Division
-            if cell.can_divide() and random.random() < prolif_prob:
+            if cell.can_divide() and prolif_random_values[pos] < prolif_prob:
                 empty_neighbors = self.get_empty_neighbors(i, j)
                 if empty_neighbors:
                     ni, nj = random.choice(empty_neighbors)
@@ -238,7 +251,7 @@ class TumorSimulation:
                     self.update_grid_cell(ni, nj, daughter)
 
             # Migration
-            if random.random() < migrate_prob:
+            if migrate_random_values[pos] < migrate_prob:
                 empty_neighbors = self.get_empty_neighbors(i, j)
                 new_pos = cell.migrate(empty_neighbors)
                 if new_pos:
@@ -247,11 +260,14 @@ class TumorSimulation:
                     cell.x, cell.y = ni, nj
                     self.update_grid_cell(ni, nj, cell)
 
-        if self.run_statistics:
+        if self.run_statistics and self.current_step % self.statistics_step == 0:
             self.__record_statistics()
 
         self.current_step += 1
         self.current_time += self.time_step
+
+        if self.current_step % 100 == 0:
+            print(f"{self.current_step}/{self.maximum_time_steps}")
 
         return self.current_step <= self.maximum_time_steps
 
@@ -274,24 +290,24 @@ class TumorSimulation:
         total cells, tumor cells, stem cells, and necrotic cells.
         """
 
-        total, tumor, stem, necrotic = 0, 0, 0, 0
-        for cell in self.cells.values():
-            if cell == SHARED_EMPTY_CELL:
-                continue
+        total, tumor, stem = 0, 0, 0
+        for pos in self.active_cells:
+            i, j = pos
+            cell = self.cell_matrix[i, j]
             total += 1
-            if isinstance(cell, NecroticCell):
-                necrotic += 1
-            elif isinstance(cell, StemCell):
+            if isinstance(cell, StemCell):
                 stem += 1
                 tumor += 1
             elif isinstance(cell, TumorCell):
                 tumor += 1
 
-        self.stats['time'][self.current_step] = self.current_time
-        self.stats['total_cells'][self.current_step] = total
-        self.stats['tumor_cells'][self.current_step] = tumor
-        self.stats['stem_cells'][self.current_step] = stem
-        self.stats['necrotic_cells'][self.current_step] = necrotic
+        self.stats['time'][self.stats_index] = self.current_time
+        self.stats['total_cells'][self.stats_index] = total + self.necrotic_count
+        self.stats['tumor_cells'][self.stats_index] = tumor
+        self.stats['stem_cells'][self.stats_index] = stem
+        self.stats['necrotic_cells'][self.stats_index] = self.necrotic_count
+
+        self.stats_index += 1
 
     def plot_statistics(self):
         """ Plots the evolution of key statistics
@@ -299,17 +315,26 @@ class TumorSimulation:
         """
 
         plt.figure(figsize=(12, 8))
-        t = self.stats['time'][:self.current_step + 1]
-        plt.plot(t, self.stats['total_cells'][:self.current_step + 1], 'k-', label='Total Cells')
-        plt.plot(t, self.stats['tumor_cells'][:self.current_step + 1], 'r-', label='Tumor Cells')
-        plt.plot(t, self.stats['stem_cells'][:self.current_step + 1], 'g-', label='Stem Cells')
-        plt.plot(t, self.stats['necrotic_cells'][:self.current_step + 1], \
-                  'b-', label='Necrotic Cells')
-        plt.xlabel('Time (days)')
-        plt.ylabel('Cell Count')
-        plt.title('Tumor Growth Simulation Statistics')
+
+        t = self.stats['time'][:self.stats_index]
+
+        plt.plot(t, self.stats['total_cells'][:self.stats_index],\
+                  'k-', label='Total Cells', linewidth=2)
+        plt.plot(t, self.stats['tumor_cells'][:self.stats_index],\
+                  'r-', label='Tumor Cells', linewidth=2)
+        plt.plot(t, self.stats['stem_cells'][:self.stats_index],\
+                  'g-', label='Stem Cells', linewidth=2)
+        plt.plot(t, self.stats['necrotic_cells'][:self.stats_index],\
+                  'b-', label='Necrotic Cells', linewidth=2)
+
+        plt.xlabel('Time (days)', fontsize=14)
+        plt.ylabel('Cell Count', fontsize=14)
+        plt.title('Tumor Growth Simulation Statistics', fontsize=16)
+
         plt.legend()
         plt.grid(True)
+        plt.tight_layout()
+
         return plt.gcf()
 
 if __name__ == "__main__":
@@ -322,7 +347,8 @@ if __name__ == "__main__":
         stem_cell_potentional=12,
         migration_potentional=1,
         tumor_size=10,
-        run_statistics=False
+        run_statistics=True,
+        statistics_step=10
     )
 
     sim.run_simulation()
