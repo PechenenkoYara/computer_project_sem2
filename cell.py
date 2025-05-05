@@ -34,35 +34,7 @@ class Cell:
     def __str__(self):
         return "Generic Cell"
 
-class TumorCell(Cell):
-    def __init__(self, x, y, cct, divisions_left):
-        super().__init__(x, y)
 
-    def divide(self, rho, param_reg, param_stem):
-        """Return new daughter cell."""
-        daughter_type = "stem" if random.random() < rho else "regular"
-        if daughter_type == "stem":
-            return StemCell(self.x, self.y, self.cct)
-        else:
-            return TumorCell(self.x, self.y, self.cct, param_reg)
-
-    def __str__(self):
-        return "Tumor Cell"
-
-class StemCell(Cell):
-    def __init__(self, x, y, cct):
-        super().__init__(x, y) 
-
-    def divide(self, rho, param_reg, param_stem):
-        """Stem cells can create either a new stem cell or regular cell."""
-        daughter_type = "stem" if random.random() < rho else "regular"
-        if daughter_type == "stem":
-            return StemCell(self.x, self.y, self.cct)
-        else:
-            return TumorCell(self.x, self.y, self.cct, param_reg)
-
-    def __str__(self):
-        return "Stem Cell"
 
 class NecroticCell(Cell):
     def __init__(self, x, y):
@@ -79,6 +51,58 @@ class EmptyCell(Cell):
 
     def __str__(self):
         return "Empty"
+
+class RegularTumorCell(Cell):
+    """RTC, limited division times, can create only same rtc"""
+    def __init__(self, x, y, cct, divisions_left):
+        super().__init__(x, y)
+        self.cct = cct
+        self.divisions_left = divisions_left
+
+    def divide(self, rho=None, param_reg=None, param_stem=None):
+        """Завжди створює ще одну RegularTumorCell, p = p_max - 1"""
+        if self.divisions_left > 1:
+            return RegularTumorCell(self.x, self.y, self.cct, self.divisions_left - 1)
+        else:
+            return NecroticCell(self.x, self.y)  # клітина помирає
+
+    def __str__(self):
+        return "Regular Tumor Cell"
+
+
+class StemTumorCell(Cell):
+    """STC, non limited division potential, can create only RTC"""
+    def __init__(self, x, y, cct):
+        super().__init__(x, y)
+        self.cct = cct
+        self.divisions_left = float("inf")
+
+    def divide(self, rho=None, param_reg=None, param_stem=None):
+        """Завжди створює RTC, тобто RegularTumorCell"""
+        return RegularTumorCell(self.x, self.y, self.cct, param_reg)
+
+    def __str__(self):
+        return "Stem Tumor Cell"
+
+class TrueStemCell(Cell):
+    """STC, non limited division potential, can create STC or TSC"""
+
+    def __init__(self, x, y, cct):
+        super().__init__(x, y)
+        self.cct = cct
+        self.divisions_left = float("inf")
+
+    def divide(self, rho, param_reg=None, param_stem=None):
+        """З ймовірністю rho створює іншу TSC, інакше STC"""
+        if random.random() < rho:
+            return TrueStemCell(self.x, self.y, self.cct)
+        else:
+            return StemTumorCell(self.x, self.y, self.cct)
+
+    def __str__(self):
+        return "True Stem Cell"
+
+
 
 
 # "Time parameters"
