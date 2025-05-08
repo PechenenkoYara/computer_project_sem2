@@ -9,6 +9,7 @@ from typing import Tuple, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.patches import Patch
 
 from cell import Cell, StemTumorCell, TrueStemCell, NecroticCell, RegularTumorCell, EmptyCell
 from grid import Grid
@@ -325,16 +326,7 @@ class TumorSimulation:
                 tumor += 1
 
         if self.stats_index % self.plot_interval == 0:
-            colors = ['#dddddd', '#fdae61', '#fff426']
-            grad = list(map(lambda x: '#' + str(hex(int(x)))[2:] + '0000', np.linspace(70, 255, self.regular_cell_division_potentional - 2)))
-            colors.extend(grad)
-            cmap = ListedColormap(colors, name='my_palette')
-            norm = BoundaryNorm(boundaries=range(12), ncolors=cmap.N, clip=True)
-            plt.matshow(self.grid.map, cmap=cmap, norm=norm)
-            plt.gcf().set_size_inches(8, 8)
-            plt.colorbar(ticks=range(12))
-            plt.title(f'Day: {self.stats_index}')
-            plt.savefig(f'plot_{self.stats_index}.png')
+            self._visualize_grid()
 
         self.stats['time'][self.stats_index] = self.current_time
         self.stats['total_cells'][self.stats_index] = total + self.necrotic_count
@@ -345,8 +337,47 @@ class TumorSimulation:
 
         self.stats_index += 1
 
+    def _visualize_grid(self):
+        """
+        Generates and saves a visualization of the cell grid, showing different cell types
+        with distinct colors.
+        """
+
+        colors = ['#dddddd', '#fdae61', '#fff426']
+        grad = list(map(lambda x: '#' + str(hex(int(x)))[2:] + '0000', np.linspace(70, 255, self.regular_cell_division_potentional - 2)))
+        colors.extend(grad)
+        cmap = ListedColormap(colors, name='my_palette')
+        norm = BoundaryNorm(boundaries=range(12), ncolors=cmap.N, clip=True)
+        plt.matshow(self.grid.map, cmap=cmap, norm=norm)
+        plt.gcf().set_size_inches(14, 8)
+
+        red_grad = list(map(lambda x: '#' + str(hex(int(x)))[2:] + '0000',
+                        np.linspace(70, 255, self.regular_cell_division_potentional - 2)))
+
+        legend_elements = [
+            Patch(facecolor='#dddddd', edgecolor='black', label='Empty Cell'),
+            Patch(facecolor='#fdae61', edgecolor='black', label='Necrotic Cell'),
+            Patch(facecolor='#fff426', edgecolor='black', label='Stem Tumor Cell'),
+            Patch(facecolor=red_grad[0], edgecolor='black', label='Regular Tumor Cell (Low Division Potential)'),
+            Patch(facecolor=red_grad[-1], edgecolor='black', label='Regular Tumor Cell (High Division Potential))')
+        ]
+
+        plt.legend(
+            handles=legend_elements,
+            loc='center right',
+            bbox_to_anchor=(-0.1, 0.5),
+            prop={'size': 10}
+        )
+
+        plt.colorbar(ticks=range(12))
+        plt.title(f'Day: {self.stats_index}')
+        plt.savefig(f'tumor_day_{self.stats_index}.png')
+        plt.close()
+
     def plot_statistics(self):
-        """ Plots the evolution of key statistics over time."""
+        """ Plots the evolution of key statistics over time.
+        """
+
         plt.figure(figsize=(12, 8))
 
         t = self.stats['time'][:self.stats_index]
@@ -366,7 +397,6 @@ class TumorSimulation:
         plt.tight_layout()
         plt.savefig('tumor_stats.png')
         return plt.gcf()
-
 
 if __name__ == "__main__":
     sim = TumorSimulation(

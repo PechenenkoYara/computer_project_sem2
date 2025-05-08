@@ -3,7 +3,6 @@ Cell Module
 """
 
 import random
-import numpy as np
 
 class Cell:
     """
@@ -27,25 +26,56 @@ class Cell:
         self.is_alive = True
 
     def update_timer(self, dt):
+        """
+        Increment the cell's internal timer by a given time step.
+
+        Args:
+            dt (float): Time step to add to the cell's time since last division.
+        """
+
         self.time_since_division += dt
 
     def can_divide(self):
+        """
+        Check if the cell has reached its cycle time and can divide.
+
+        Returns:
+            bool: True if the cell can divide, False otherwise.
+        """
+
         return self.time_since_division >= self.cct
 
     def reset_timer(self):
+        """
+        Reset the cell's internal timer after division.
+        """
+
         self.time_since_division = 0
 
     def die(self):
+        """
+        Mark the cell as dead by setting its 'is_alive' attribute to False.
+        """
+
         self.is_alive = False
 
     def migrate(self, free_neighbors):
+        """
+        Attempt to migrate to a random free neighboring location.
+
+        Args:
+            free_neighbors (list of tuple): Available (x, y) positions to migrate to.
+
+        Returns:
+            tuple or None: Chosen position to migrate to, or None if no free space.
+        """
+
         if free_neighbors:
-            return random.choice(free_neighbors) 
+            return random.choice(free_neighbors)
         return None
 
     def __str__(self):
         return "Generic Cell"
-
 
 
 class NecroticCell(Cell):
