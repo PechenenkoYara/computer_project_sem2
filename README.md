@@ -190,7 +190,7 @@ All output files are stored in the current working directory.
 ## Contributors
 
 * **Yaryna Pechenenko** – Implemented the cell classes and cell type logic
-* **Ivan Zarytskyi** – Developed the visualization tools and output plotting
+* **Ivan Zarytskyi** – Developed the visualization tools, cli and output plotting
 * **Mykhailo Rykhalskyi** – Designed and implemented the grid structure and spatial logic
 * **Roman Prokhorov** – Built the main simulation engine and time evolution mechanics
 
