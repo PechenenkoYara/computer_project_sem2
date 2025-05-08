@@ -14,7 +14,7 @@ class Grid:
         n: int,
         m: int,
         param_stem: int,
-        tumor_creator: Callable[[int], Tuple[np.ndarray, int, Tuple[int, int]]],
+        tumor_creator: Callable[[], Tuple[np.ndarray, int]],
         seed: str | None = None
     ) -> None:
         """
@@ -49,7 +49,7 @@ class Grid:
         self._map = np.zeros((self._n, self._m), dtype=int)
 
         # 2) get the small tumor, its size and center
-        tumor, tumor_size, tumor_center = self.tumor_creator(self.param_stem)
+        tumor, tumor_size = self.tumor_creator()
 
         # 3) embed that tumor matrix into the middle of self._map
         start = ((self._n - tumor_size) // 2, (self._m - tumor_size) // 2)
@@ -58,9 +58,7 @@ class Grid:
 
     @property
     def map(self):
-        """ Public read-only access to the grid map.
-        """
-
+        """ Public read-only access to the grid map. """
         return self._map
 
     def __getitem__(self, idx):

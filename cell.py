@@ -61,7 +61,7 @@ class RegularTumorCell(Cell):
 
     def divide(self, rho=None, param_reg=None, param_stem=None):
         """Завжди створює ще одну RegularTumorCell, p = p_max - 1"""
-        if self.divisions_left > 1:
+        if self.divisions_left > 2:
             return RegularTumorCell(self.x, self.y, self.cct, self.divisions_left - 1)
         else:
             return NecroticCell(self.x, self.y)  # клітина помирає
@@ -106,15 +106,15 @@ class TrueStemCell(Cell):
 
 
 # "Time parameters"
-t_max=1000 #Total ammount of steps dt
+t_max=1000 #Total amount of steps dt
 dt = 1/12 # Time step size (fraction of a day) 
 # "Model parameters"
-param_cct = 24 #cell cicle time (hours)
+param_cct = 24 #cell cycle time (hours)
 param_reg = 11 #proliferation potential of regular tumor cell (number of divisions unitl death + 1)
 param_stem = param_reg+1 #stem cells have superior proliferation potential (and dont die)
 param_potm = 1 #migration potential in cell width  per day
 vect_deat,vect_prol,vect_potm,vect_stem = (np.empty(t_max+1) for i in range(4)) #create empty vectors for time-variable chances
 vect_deat[:round(0.5*t_max)]=0.01*dt; vect_deat[round(0.5*t_max):]=0.01*dt #chance of death changing w/ time
 vect_prol[:] =  (24/param_cct*dt) # Chance of proliferation 
-vect_potm[:round(0.4*t_max)] = 10*dt; vect_potm[round(0.4*t_max):] = 10*dt; #Chance of migration changing w/ time
+vect_potm[:round(0.4*t_max)] = 10*dt; vect_potm[round(0.4*t_max):] = 10*dt  #Chance of migration changing w/ time
 vect_stem[:] = 0.1 #Probability of creating a daughter stem cell
