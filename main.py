@@ -11,13 +11,7 @@ if __name__ == '__main__':
         '--n',
         type=int,
         default=500,
-        help='Number of rows in the grid (default: 500)'
-    )
-    parser.add_argument(
-        '--m',
-        type=int,
-        default=500,
-        help='Number of columns in the grid (default: 500)'
+        help='Size of the grid (default: 500)'
     )
     parser.add_argument(
         '--seed',
@@ -64,7 +58,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # print(args)
     sim = simulation.TumorSimulation(
-        grid_size=(args.n, args.m),
+        grid_size=(args.n, args.n),
         max_simulation_days=args.days,
         regular_cell_division_potentional=args.div_pot,
         tumor_size=args.tumor_size,
