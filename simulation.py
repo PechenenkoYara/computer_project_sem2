@@ -34,7 +34,8 @@ class TumorSimulation:
         RST_prob: float = 0.5,
         seed: Optional[str] = None,
         run_statistics: bool = False,
-        statistics_step: int = 10
+        statistics_step: int = 10,
+        plot_interval: int = 100
     ):
         """
         Initialize the tumor simulation environment.
@@ -52,6 +53,7 @@ class TumorSimulation:
             run_statistics (bool): If True, statistics will be saved. 
             If False, statistics will not be saved, which improves performance.
             statistics_step (int): Statistics recording frequency.
+            plot_interval (int): Interval of days between visualization plots.
         """
 
         self.n_rows, self.n_cols = grid_size
@@ -67,6 +69,7 @@ class TumorSimulation:
         self.RST_prob = RST_prob
         self.run_statistics = run_statistics
         self.statistics_step = statistics_step
+        self.plot_interval = plot_interval
 
         self.grid = Grid(
             n=self.n_rows,
@@ -241,9 +244,11 @@ class TumorSimulation:
 
             # Death
             if death_random_values[pos] < death_prob:
-                self.update_grid_cell(i, j, NecroticCell(i, j))
-                self.necrotic_count += 1
-                continue
+                # Only apply random death probability to non-stem cells
+                if not isinstance(cell, TrueStemCell) and not isinstance(cell, StemTumorCell):
+                    self.update_grid_cell(i, j, NecroticCell(i, j))
+                    self.necrotic_count += 1
+                    continue
 
             # Division
             if cell.can_divide() and prolif_random_values[pos] < prolif_prob:
@@ -252,6 +257,7 @@ class TumorSimulation:
                     ni, nj = random.choice(empty_neighbors)
                     cell.reset_timer()
 
+                    # Only regular tumor cells should have division limits
                     if isinstance(cell, RegularTumorCell):
                         cell.divisions_left -= 1
                         if cell.divisions_left <= 3:
@@ -320,7 +326,7 @@ class TumorSimulation:
             elif isinstance(cell, RegularTumorCell):
                 tumor += 1
 
-        if self.stats_index % 100 == 0:
+        if self.stats_index % self.plot_interval == 0:
             colors = ['#dddddd', '#fdae61', '#fff426']
             grad = list(map(lambda x: '#' + str(hex(int(x)))[2:] + '0000', np.linspace(70, 255, self.regular_cell_division_potentional - 2)))
             colors.extend(grad)
@@ -342,35 +348,27 @@ class TumorSimulation:
         self.stats_index += 1
 
     def plot_statistics(self):
-        """ Plots the evolution of key statistics
-        (total cells, tumor cells, stem cells, necrotic cells) over time.
-        """
-
+        """ Plots the evolution of key statistics over time."""
         plt.figure(figsize=(12, 8))
 
         t = self.stats['time'][:self.stats_index]
 
-        plt.plot(t, self.stats['total_cells'][:self.stats_index],
-                 'k-', label='Total Cells', linewidth=2)
-        plt.plot(t, self.stats['true_stems'][:self.stats_index],
-                 'y-', label='True Stem Cells', linewidth=2)
-        plt.plot(t, self.stats['tumor_cells'][:self.stats_index],
-                 'r-', label='Tumor Cells', linewidth=2)
-        plt.plot(t, self.stats['stem_cells'][:self.stats_index],
-                 'g-', label='Stem Cells', linewidth=2)
-        plt.plot(t, self.stats['necrotic_cells'][:self.stats_index],
-                 'b-', label='Necrotic Cells', linewidth=2)
+        plt.plot(t, self.stats['total_cells'][:self.stats_index], 'k-', label='Total Cells', linewidth=2)
+        plt.plot(t, self.stats['tumor_cells'][:self.stats_index], 'r-', label='Tumor Cells', linewidth=2)
+        plt.plot(t, self.stats['stem_cells'][:self.stats_index], 'g--', label='Stem Cells', linewidth=2.5)
+        plt.plot(t, self.stats['true_stems'][:self.stats_index], 'y-o', label='True Stem Cells', markersize=4, linewidth=2)
+        plt.plot(t, self.stats['necrotic_cells'][:self.stats_index], 'b-.', label='Necrotic Cells', linewidth=2)
 
         plt.xlabel('Time (days)', fontsize=14)
         plt.ylabel('Cell Count', fontsize=14)
         plt.title('Tumor Growth Simulation Statistics', fontsize=16)
 
-        plt.legend()
+        plt.legend(loc='upper left', fontsize=12)
         plt.grid(True)
         plt.tight_layout()
-
-        plt.savefig(f'tumor_stats.png')
+        plt.savefig('tumor_stats.png')
         return plt.gcf()
+
 
 if __name__ == "__main__":
     sim = TumorSimulation(

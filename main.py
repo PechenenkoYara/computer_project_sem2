@@ -1,3 +1,7 @@
+"""
+Main Module
+"""
+
 import argparse
 import simulation
 
@@ -7,13 +11,13 @@ if __name__ == '__main__':
         '--n',
         type=int,
         default=500,
-        help='Number of rows in the grid (default: 100)'
+        help='Number of rows in the grid (default: 500)'
     )
     parser.add_argument(
         '--m',
         type=int,
         default=500,
-        help='Number of columns in the grid (default: 100)'
+        help='Number of columns in the grid (default: 500)'
     )
     parser.add_argument(
         '--seed',
@@ -50,8 +54,23 @@ if __name__ == '__main__':
         action='store_true',
         help='Record statistics (default: False)'
     )
+    parser.add_argument(
+        '--plot_interval',
+        type=int,
+        default=100,
+        help='Interval of days between visualization plots (default: 100)'
+    )
 
     args = parser.parse_args()
     # print(args)
-    sim = simulation.TumorSimulation(grid_size=(args.n, args.m), max_simulation_days=args.days, regular_cell_division_potentional=args.div_pot, tumor_size=args.tumor_size, statistics_step=args.stat_step, run_statistics=args.record_stats, seed=args.seed)
+    sim = simulation.TumorSimulation(
+        grid_size=(args.n, args.m), 
+        max_simulation_days=args.days, 
+        regular_cell_division_potentional=args.div_pot, 
+        tumor_size=args.tumor_size, 
+        statistics_step=args.stat_step, 
+        run_statistics=args.record_stats, 
+        seed=args.seed,
+        plot_interval=args.plot_interval
+    )
     sim.run_simulation()
