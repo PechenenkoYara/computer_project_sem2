@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
     # Create and run simulation
     sim = simulation.TumorSimulation(
-        grid_size=(args.n, args.m),
+        grid_size=(args.n, args.n),
         max_simulation_days=args.days,
         time_step=args.time_step,
         cell_cycle_time=args.cell_cycle,
