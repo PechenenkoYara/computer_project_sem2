@@ -182,3 +182,72 @@ class TrueStemCell(Cell):
 
     def __str__(self):
         return "True Stem Cell"
+
+class ImmuneCell(Cell):
+    """
+    Represents an immune system cell that can attack and kill tumor cells.
+    
+    Attributes:
+        x (int): X-coordinate of the cell.
+        y (int): Y-coordinate of the cell.
+        cct (float): Cell cycle time (how long until the cell can divide).
+        lifespan (float): Total time the immune cell can live.
+        age (float): Current age of the immune cell.
+        kill_probability (float): Probability of successfully killing a tumor cell.
+        activation_level (float): Level of immune activation (affects killing efficiency).
+    """
+
+    def __init__(self, x, y, cct=24, lifespan=72, kill_probability=0.3, activation_level=1.0):
+        super().__init__(x, y)
+        self.cct = cct
+        self.lifespan = lifespan  # Immune cells have limited lifespan (in hours)
+        self.age = 0
+        self.kill_probability = kill_probability
+        self.activation_level = activation_level
+        self.divisions_left = 3  # Immune cells can divide a limited number of times
+
+    def update_timer(self, dt):
+        """
+        Update both division timer and age.
+        
+        Args:
+            dt (float): Time step to add.
+        """
+
+        super().update_timer(dt)
+        self.age += dt
+
+        # Check if cell has reached end of lifespan
+        if self.age >= self.lifespan:
+            self.die()
+
+    def divide(self, rho=None, param_reg=None, param_stem=None):
+        """
+        Create a new immune cell.
+        
+        Returns:
+            ImmuneCell: A new immune cell with the same properties.
+        """
+
+        if self.divisions_left > 0:
+            self.divisions_left -= 1
+            return ImmuneCell(
+                self.x,
+                self.y,
+                self.cct,
+                self.lifespan,
+                self.kill_probability,
+                self.activation_level
+            )
+        else:
+            return None
+
+    def can_kill_tumor(self):
+        """
+        Determine if the immune cell successfully kills a tumor cell.
+        
+        Returns:
+            bool: True if kill is successful, False otherwise.
+        """
+
+        return random.random() < (self.kill_probability * self.activation_level)
