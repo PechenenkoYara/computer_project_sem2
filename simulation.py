@@ -1,5 +1,5 @@
 """
-Tumor simulation module
+Tumor Simulation Module
 """
 
 import random
@@ -244,7 +244,6 @@ class TumorSimulation:
 
             # Death
             if death_random_values[pos] < death_prob:
-                # Only apply random death probability to non-stem cells
                 if not isinstance(cell, TrueStemCell) and not isinstance(cell, StemTumorCell):
                     self.update_grid_cell(i, j, NecroticCell(i, j))
                     self.necrotic_count += 1
@@ -257,7 +256,6 @@ class TumorSimulation:
                     ni, nj = random.choice(empty_neighbors)
                     cell.reset_timer()
 
-                    # Only regular tumor cells should have division limits
                     if isinstance(cell, RegularTumorCell):
                         cell.divisions_left -= 1
                         if cell.divisions_left <= 3:

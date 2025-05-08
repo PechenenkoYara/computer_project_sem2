@@ -64,13 +64,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # print(args)
     sim = simulation.TumorSimulation(
-        grid_size=(args.n, args.m), 
-        max_simulation_days=args.days, 
-        regular_cell_division_potentional=args.div_pot, 
-        tumor_size=args.tumor_size, 
-        statistics_step=args.stat_step, 
-        run_statistics=args.record_stats, 
+        grid_size=(args.n, args.m),
+        max_simulation_days=args.days,
+        regular_cell_division_potentional=args.div_pot,
+        tumor_size=args.tumor_size,
+        statistics_step=args.stat_step,
+        run_statistics=args.record_stats,
         seed=args.seed,
         plot_interval=args.plot_interval
     )
+
     sim.run_simulation()

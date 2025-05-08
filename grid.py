@@ -1,12 +1,17 @@
+"""
+Grid Module
+"""
+
 import random
-import numpy as np
 from typing import Callable, Tuple
 
+import numpy as np
 
 class Grid:
     """
     A 2D grid for the stochastic cellular automaton tumor model.
-    Inspired by Terrain-Generation's Grid (n1n1n1q/Terrain-Generation)  [oai_citation_attribution:2‡GitHub](https://github.com/n1n1n1q/Terrain-Generation/blob/main/src/grid.py).
+    Inspired by Terrain-Generation's Grid (n1n1n1q/Terrain-Generation)  
+    [oai_citation_attribution:2‡GitHub](https://github.com/n1n1n1q/Terrain-Generation/blob/main/src/grid.py).
     """
 
     def __init__(
@@ -23,6 +28,7 @@ class Grid:
         :param param_stem: code for a stem tumor cell (from Valentim model)
         :param seed: optional string seed for reproducibility
         """
+
         self.n_rows = n
         self.n_cols = m
         self._n = n
@@ -34,7 +40,9 @@ class Grid:
         self.set_up()
 
     def _generate_seed(self) -> str:
-        """Create a random 20-char seed string."""
+        """Create a random 20-char seed string.
+        """
+
         chars = "1234567890abcdefghABCDEFGHQWERTYqwerty"
         return ''.join(random.choice(chars) for _ in range(20))
 
@@ -42,6 +50,7 @@ class Grid:
         """
         Initialize the grid array and place the initial tumor at center.
         """
+
         random.seed(self.seed)
         np.random.seed()  # let NumPy pick its own if you like, or seed for full reproducibility
 
@@ -58,11 +67,15 @@ class Grid:
 
     @property
     def map(self):
-        """ Public read-only access to the grid map. """
+        """ Public read-only access to the grid map. 
+        """
+
         return self._map
 
     def __getitem__(self, idx):
-        """Allow grid[i][j] to return the cell-state (int)."""
+        """Allow grid[i][j] to return the cell-state (int).
+        """
+
         return self._map[idx]
 
     def __setitem__(self, idx: Tuple[int, int], value: int) -> None:
@@ -72,6 +85,7 @@ class Grid:
             idx (Tuple[int, int]): The (row, column) indices.
             value (int): The value to set at the specified cell.
         """
+
         i, j = idx
         self._map[i, j] = value
 
@@ -80,12 +94,15 @@ class Grid:
         Return coordinates of the 8 Moore-neighbours of (i, j),
         clipped at edges.
         """
+
         neighs = []
         for di in (-1, 0, 1):
             for dj in (-1, 0, 1):
                 if di == 0 and dj == 0:
                     continue
+
                 ni, nj = i + di, j + dj
                 if 0 <= ni < self.n_rows and 0 <= nj < self.n_cols:
                     neighs.append((ni, nj))
+
         return neighs
