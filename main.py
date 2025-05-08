@@ -96,7 +96,7 @@ def parse_arguments():
 
     # Immune system parameters
     parser.add_argument('--immune',
-        action='store_false',
+        action='store_true',
         help='Enable immune system (default: False)'
     )
 
