@@ -29,12 +29,80 @@
 
 \subsection{Ієрархія клітин пухлини}
 Опис біологічної структури клітин:
+
+\maketitle
+
+\section*{1. \textbf{Cell (Базова клітина)}}
+Базовий клас для всіх типів клітин.
+
 \begin{itemize}
-    \item Істинні стовбурові клітини (TSC)
-    \item Стовбурові пухлинні клітини (STC)
-    \item Звичайні пухлинні клітини (RTC)
-    \item Некротичні клітини
-    \item Імунні клітини
+    \item Координати: $x$, $y$
+    \item Таймер поділу: \texttt{time\_since\_division}
+    \item Кількість доступних поділів: \texttt{divisions\_left}
+    \item Час циклу клітини: \texttt{cct} = 24 годин
+    \item Стан життя: \texttt{is\_alive}
+\end{itemize}
+
+\noindent \textbf{Методи:}
+\begin{itemize}
+    \item \texttt{can\_divide()}
+    \item \texttt{reset\_timer()}
+    \item \texttt{update\_timer(dt)}
+    \item \texttt{die()}
+    \item \texttt{migrate(free\_neighbors)}
+\end{itemize}
+
+\section*{2. \textbf{EmptyCell (Порожня клітинка)}}
+\begin{itemize}
+    \item Просто ``місце'', де немає клітини.
+    \item \texttt{is\_alive = False}
+    \item Не ділиться.
+\end{itemize}
+
+\section*{3. \textbf{NecroticCell (Некротична клітина)}}
+\begin{itemize}
+    \item Мертва клітина, яка раніше була живою, але вже не функціонує.
+    \item \texttt{is\_alive = False}
+    \item Не ділиться.
+\end{itemize}
+
+\section*{4. \textbf{RegularTumorCell (Звичайна пухлинна клітина)}}
+\begin{itemize}
+    \item Має обмежену кількість поділів.
+    \item \texttt{divisions\_left} зменшується з кожним поділом.
+    \item Якщо \texttt{divisions\_left} $\leq 2$, перетворюється на \texttt{NecroticCell} при наступному поділі.
+    \item Метод \texttt{divide()} створює нову \texttt{RegularTumorCell} з \texttt{divisions\_left - 1}.
+\end{itemize}
+
+\section*{5. \textbf{StemTumorCell (Стовбурова пухлинна клітина)}}
+\begin{itemize}
+    \item Необмежена здатність до поділу: \texttt{divisions\_left = \(\infty\)}.
+    \item Завжди ділиться у \texttt{RegularTumorCell}.
+    \item Символізує агресивну форму пухлини.
+\end{itemize}
+
+\section*{6. \textbf{TrueStemCell (Істинна стовбурова клітина)}}
+\begin{itemize}
+    \item Найбільш ``основна'' стовбурова клітина.
+    \item Може створювати:
+    \begin{itemize}
+        \item ще одну \texttt{TrueStemCell} з імовірністю $\rho$
+        \item або \texttt{StemTumorCell} з імовірністю $1 - \rho$
+    \end{itemize}
+    \item Має потенціал підтримувати як нормальну, так і пухлинну популяцію.
+\end{itemize}
+
+\section*{7. \textbf{ImmuneCell (Імунна клітина)}}
+\begin{itemize}
+    \item Може атакувати пухлинні клітини.
+    \item Має такі характеристики:
+    \begin{itemize}
+        \item \textbf{Тривалість життя}: \texttt{lifespan}, напр., 72 год.
+        \item \textbf{Ймовірність вбивства клітини}: \texttt{kill\_probability}, напр., 0.3
+        \item \textbf{Рівень активації}: \texttt{activation\_level} — підсилює здатність убивати
+        \item \textbf{Кількість поділів}: обмежена, напр., 3
+        \item Помирає при досягненні \texttt{age} $\geq$ \texttt{lifespan}
+    \end{itemize}
 \end{itemize}
 
 \subsection{Динаміка росту пухлини}
